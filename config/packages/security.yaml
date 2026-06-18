@@ -23,6 +23,7 @@ security:
             security: false
 
     access_control:
+        - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
         - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/change-pin, roles: PUBLIC_ACCESS }
         - { path: ^/api, roles: ROLE_API }

@@ -26,6 +26,10 @@ final class ApiAuthenticator extends AbstractAuthenticator
 
     public function supports(Request $request): ?bool
     {
+        if ($request->isMethod('OPTIONS')) {
+            return false;
+        }
+
         if (!str_starts_with($request->getPathInfo(), '/api')) {
             return false;
         }
