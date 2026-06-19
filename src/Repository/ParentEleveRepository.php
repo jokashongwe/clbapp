@@ -28,7 +28,9 @@ class ParentEleveRepository extends ServiceEntityRepository
             SELECT p.id
             FROM parent_eleve p
             WHERE p.supp = 0
-              AND REGEXP_REPLACE(p.numero_telephone_tuteur, '[^0-9]', '') = :phone
+              AND (REGEXP_REPLACE(p.numero_telephone_tuteur, '[^0-9]', '') = :phone
+                OR REGEXP_REPLACE(p.telephonepere, '[^0-9]', '') = :phone
+                OR REGEXP_REPLACE(p.telephonemere, '[^0-9]', '') = :phone)
             ORDER BY p.id ASC
         SQL;
 

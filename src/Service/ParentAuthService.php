@@ -74,9 +74,9 @@ final class ParentAuthService
             throw new UnauthorizedHttpException('', 'Aucun tuteur actif trouvé pour ce numéro de téléphone.');
         }
 
-        if (\count($parentIds) > 1) {
+        /*if (\count($parentIds) > 1) {
             throw new UnauthorizedHttpException('', 'Ce numéro est associé à plusieurs tuteurs. Contactez l\'école.');
-        }
+        }*/
 
         $parent = $this->parentEleveRepository->find($parentIds[0]);
         if ($parent === null || $parent->isSupp()) {
