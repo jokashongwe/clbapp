@@ -46,7 +46,7 @@ final class ParentAuthService
         $parent = $this->findActiveParentByTelephone($telephone);
         $this->assertPinValid($parent, $currentPin);
 
-        $normalizedPhone = PhoneNormalizer::normalize($telephone);
+        $normalizedPhone = PhoneNormalizer::toNational($telephone);
         $hasher = $this->passwordHasherFactory->getPasswordHasher(PinUser::class);
 
         $parentPin = $this->parentPinRepository->findOneByParent($parent);
@@ -69,7 +69,7 @@ final class ParentAuthService
             throw new BadRequestHttpException('Numéro de téléphone invalide.');
         }
 
-        $parentIds = $this->parentEleveRepository->findActiveIdsByTelephoneTuteur($normalized);
+        $parentIds = $this->parentEleveRepository->findActiveIdsByTelephoneTuteur($telephone);
         if ($parentIds === []) {
             throw new UnauthorizedHttpException('', 'Aucun tuteur actif trouvé pour ce numéro de téléphone.');
         }
@@ -83,7 +83,7 @@ final class ParentAuthService
             throw new UnauthorizedHttpException('', 'Aucun tuteur actif trouvé pour ce numéro de téléphone.');
         }
 
-        if (!$this->parentEleveRepository->telephoneMatchesParent($parent, $normalized)) {
+        if (!$this->parentEleveRepository->telephoneMatchesParent($parent, $telephone)) {
             throw new UnauthorizedHttpException('', 'Le numéro ne correspond pas au tuteur enregistré.');
         }
 

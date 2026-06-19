@@ -5,6 +5,7 @@ namespace App\Repository;
 use App\Entity\Eleve;
 use App\Util\PhoneNormalizer;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
+use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -22,9 +23,8 @@ class EleveRepository extends ServiceEntityRepository
      */
     public function findByNumeroTelephoneTuteur(string $telephone): array
     {
-        $normalized = PhoneNormalizer::normalize($telephone);
-
-        if ($normalized === '') {
+        $variants = PhoneNormalizer::variants($telephone);
+        if ($variants === []) {
             return [];
         }
 
@@ -36,11 +36,19 @@ class EleveRepository extends ServiceEntityRepository
             INNER JOIN parent_eleve p ON e.id_parent_id = p.id
             WHERE e.supp = 0
               AND p.supp = 0
-              AND REGEXP_REPLACE(p.numero_telephone_tuteur, '[^0-9]', '') = :phone
+              AND (
+                REGEXP_REPLACE(p.numero_telephone_tuteur, '[^0-9]', '') IN (:phones)
+                OR REGEXP_REPLACE(p.telephonepere, '[^0-9]', '') IN (:phones)
+                OR REGEXP_REPLACE(p.telephonemere, '[^0-9]', '') IN (:phones)
+              )
             ORDER BY e.nom ASC, e.post_nom ASC, e.prenom ASC
         SQL;
 
-        $ids = $connection->fetchFirstColumn($sql, ['phone' => $normalized]);
+        $ids = $connection->fetchFirstColumn(
+            $sql,
+            ['phones' => $variants],
+            ['phones' => ArrayParameterType::STRING],
+        );
 
         if ($ids === []) {
             return [];
