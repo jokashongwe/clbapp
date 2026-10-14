@@ -4,6 +4,7 @@ security:
         App\Security\PinUser: 'auto'
 
     role_hierarchy:
+        ROLE_DIRECTEUR: ROLE_PARENT
         ROLE_PARENT: ROLE_API
 
     providers:
@@ -26,6 +27,8 @@ security:
         - { path: ^/api, roles: PUBLIC_ACCESS, methods: [OPTIONS] }
         - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/change-pin, roles: PUBLIC_ACCESS }
+        - { path: ^/api/inscriptions/statistiques, roles: ROLE_DIRECTEUR }
+        - { path: ^/api/paiements/statistiques, roles: ROLE_DIRECTEUR }
         - { path: ^/api, roles: ROLE_API }
 
 when@test:

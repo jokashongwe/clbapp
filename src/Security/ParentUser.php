@@ -10,6 +10,7 @@ final class ParentUser implements UserInterface
         private readonly int $parentId,
         private readonly string $telephone,
         private readonly string $nomTuteur,
+        private readonly bool $isDirecteur = false,
     ) {
     }
 
@@ -28,6 +29,11 @@ final class ParentUser implements UserInterface
         return $this->nomTuteur;
     }
 
+    public function isDirecteur(): bool
+    {
+        return $this->isDirecteur;
+    }
+
     public function getUserIdentifier(): string
     {
         return (string) $this->parentId;
@@ -35,6 +41,10 @@ final class ParentUser implements UserInterface
 
     public function getRoles(): array
     {
+        if ($this->isDirecteur) {
+            return ['ROLE_DIRECTEUR'];
+        }
+
         return ['ROLE_PARENT'];
     }
 

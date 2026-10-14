@@ -48,6 +48,9 @@ class ParentEleve
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private \DateTimeInterface $datecreation;
 
+    #[ORM\Column(name: 'related_user_id', nullable: true)]
+    private ?int $relatedUserId = null;
+
     public function getId(): ?int
     {
         return $this->id;
@@ -86,5 +89,10 @@ class ParentEleve
     public function getNommere(): string
     {
         return $this->nommere;
+    }
+
+    public function getRelatedUserId(): ?int
+    {
+        return $this->relatedUserId;
     }
 }

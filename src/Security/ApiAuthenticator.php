@@ -2,6 +2,7 @@
 
 namespace App\Security;
 
+use App\Repository\ParentDirecteurRepository;
 use App\Repository\ParentSessionRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -19,6 +20,7 @@ final class ApiAuthenticator extends AbstractAuthenticator
 {
     public function __construct(
         private readonly ParentSessionRepository $parentSessionRepository,
+        private readonly ParentDirecteurRepository $parentDirecteurRepository,
         #[Autowire(env: 'API_TOKEN')]
         private readonly string $apiToken,
     ) {
@@ -52,6 +54,7 @@ final class ApiAuthenticator extends AbstractAuthenticator
         $session = $this->parentSessionRepository->findValidByTokenHash(hash('sha256', $token));
         if ($session !== null) {
             $parent = $session->getParent();
+            $isDirecteur = $this->parentDirecteurRepository->isDirecteur($parent->getId());
 
             return new SelfValidatingPassport(
                 new UserBadge(
@@ -60,6 +63,7 @@ final class ApiAuthenticator extends AbstractAuthenticator
                         $parent->getId(),
                         $parent->getNumeroTelephoneTuteur(),
                         $parent->getNomTuteur(),
+                        $isDirecteur,
                     ),
                 ),
             );

@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\ParentPin;
 use App\Entity\ParentSession;
 use App\Entity\ParentEleve;
+use App\Repository\ParentDirecteurRepository;
 use App\Repository\ParentEleveRepository;
 use App\Repository\ParentPinRepository;
 use App\Repository\ParentSessionRepository;
@@ -20,6 +21,7 @@ final class ParentAuthService
 {
     public function __construct(
         private readonly ParentEleveRepository $parentEleveRepository,
+        private readonly ParentDirecteurRepository $parentDirecteurRepository,
         private readonly ParentPinRepository $parentPinRepository,
         private readonly ParentSessionRepository $parentSessionRepository,
         private readonly EntityManagerInterface $entityManager,
@@ -126,13 +128,18 @@ final class ParentAuthService
         $this->entityManager->persist($session);
         $this->entityManager->flush();
 
+        $isDirecteur = $this->parentDirecteurRepository->isDirecteur($parent->getId());
+        $roles = $isDirecteur ? ['ROLE_DIRECTEUR', 'ROLE_PARENT'] : ['ROLE_PARENT'];
+
         return [
             'token' => $token,
             'expires_at' => $expiresAt->format(\DateTimeInterface::ATOM),
+            'roles' => $roles,
             'parent' => [
                 'id' => $parent->getId(),
                 'nomTuteur' => $parent->getNomTuteur(),
                 'numeroTelephoneTuteur' => $parent->getNumeroTelephoneTuteur(),
+                'isDirecteur' => $isDirecteur,
             ],
         ];
     }
