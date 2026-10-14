@@ -19,5 +19,9 @@ services:
     App\:
         resource: '../src/'
 
+    App\Service\DevoirFileValidator:
+        arguments:
+            $maxUploadBytes: '%env(int:DEVOIR_MAX_UPLOAD_BYTES)%'
+
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

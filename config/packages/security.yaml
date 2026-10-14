@@ -29,6 +29,8 @@ security:
         - { path: ^/api/auth/change-pin, roles: PUBLIC_ACCESS }
         - { path: ^/api/inscriptions/statistiques, roles: ROLE_DIRECTEUR }
         - { path: ^/api/paiements/statistiques, roles: ROLE_DIRECTEUR }
+        - { path: ^/api/annonces$, roles: ROLE_DIRECTEUR, methods: [POST] }
+        - { path: ^/api/devoirs$, roles: ROLE_DIRECTEUR, methods: [POST] }
         - { path: ^/api, roles: ROLE_API }
 
 when@test:

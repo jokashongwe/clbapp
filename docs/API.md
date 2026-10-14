@@ -17,6 +17,9 @@ Toutes les réponses sont au format **JSON**.
 - [Élèves](#élèves)
 - [Paiements](#paiements)
 - [Tarifications](#tarifications)
+- [Annonces aux parents](#annonces-aux-parents)
+- [Devoirs (fichiers par classe)](#devoirs-fichiers-par-classe)
+- [Notifications push (Firebase)](#notifications-push-firebase)
 
 ---
 
@@ -335,6 +338,8 @@ GET /api/eleves?numero_telephone_tuteur={telephone}
 |-----------|------|--------|-------------|
 | `numero_telephone_tuteur` | string | **Oui** | Numéro du tuteur (`parent_eleve.numero_telephone_tuteur`). Les caractères non numériques sont ignorés lors de la comparaison. |
 
+Ne retourne que les élèves inscrits pour l'**année scolaire en cours** (`inscription.anneescolaire` = libellé de `annee_scolaire`, ex. `2025/2026`) et sans inscription active de type **`Quitter`** pour cette année.
+
 **Exemple :**
 
 ```bash
@@ -354,7 +359,7 @@ GET /api/eleves/by-parent/{parentId}
 |-----------|------|-------------|
 | `parentId` | int | Identifiant du parent (`parent_eleve.id`) |
 
-Retourne les élèves actifs (`supp = 0`) rattachés à ce parent.
+Retourne les élèves actifs (`supp = 0`) rattachés à ce parent, inscrits pour l'année scolaire en cours et **sans** inscription `Quitter` pour cette année.
 
 ---
 
@@ -598,6 +603,206 @@ GET /api/tarifications/{id}
 | `GET` | `/api/paiements/{id}` |
 | `GET` | `/api/tarifications` |
 | `GET` | `/api/tarifications/{id}` |
+| `POST` | `/api/annonces` *(directeur)* |
+| `GET` | `/api/annonces` *(parent — non lues)* |
+| `POST` | `/api/annonces/{id}/read` *(parent)* |
+| `POST` | `/api/annonces/read-all` *(parent)* |
+| `POST` | `/api/devoirs` *(directeur — multipart)* |
+| `GET` | `/api/devoirs` |
+| `GET` | `/api/devoirs/{id}` |
+| `GET` | `/api/devoirs/{id}/download-url` |
+| `POST` | `/api/push/devices` *(parent — enregistrer token FCM)* |
+| `POST` | `/api/push/devices/unregister` *(parent)* |
+
+---
+
+## Annonces aux parents
+
+Communication ciblée vers les parents : **Information**, **Rappel** ou **Convocation**.  
+Les annonces apparaissent dans la liste **non lue** du parent tant qu’il n’a pas appelé **read** (une annonce) ou **read-all** (toutes les siennes).
+
+Tables dédiées : `annonce`, `annonce_lecture` (migration Doctrine).
+
+### Types
+
+| `type` | Libellé |
+|--------|---------|
+| `Information` | Informations |
+| `Rappel` | Rappels |
+| `Convocation` | Convocations |
+
+### Ciblage (`cibleType`)
+
+| `cibleType` | `cibleId` | Portée |
+|-------------|-----------|--------|
+| `tous` | *(omis)* | Tous les parents connectés |
+| `eleve` | id élève | Parent(s) de cet élève (inscription active, hors « Quitter ») |
+| `classe` | id classe | Parents ayant au moins un enfant dans cette classe |
+| `option` | id **catégorie** (`categorie.id`, filière / option) | Parents ayant au moins un enfant dans une classe de cette catégorie |
+
+Le filtre d’inscription reprend la même logique que la liste des élèves (année scolaire en cours, pas de type `Quitter`).
+
+### Créer une annonce *(ROLE_DIRECTEUR — session login directeur)*
+
+```
+POST /api/annonces
+```
+
+**Corps JSON :**
+
+```json
+{
+  "type": "Information",
+  "titre": "Réunion parents",
+  "contenu": "Merci de vous présenter vendredi à 14h.",
+  "cibleType": "classe",
+  "cibleId": 12
+}
+```
+
+Alias acceptés : `cible_type`, `cible_id`.
+
+**Réponse (201)** : objet annonce (groupe `read`).
+
+Après création, l’API envoie une **notification push** Firebase aux parents ciblés qui ont enregistré un appareil (`POST /api/push/devices`).
+
+### Liste non lue *(session parent)*
+
+```
+GET /api/annonces
+```
+
+Retourne uniquement les annonces **non lues** et **ciblées** pour le parent authentifié, triées par date décroissante.  
+Le token technique (`API_TOKEN`) ne suffit pas : il faut le token de session après login parent.
+
+### Marquer comme lue
+
+```
+POST /api/annonces/{id}/read
+```
+
+**Réponse :** `{ "ok": true }` (404 si annonce absente ou non visible pour ce parent).
+
+```
+POST /api/annonces/read-all
+```
+
+Marque comme lues toutes les annonces non lues visibles pour le parent.
+
+**Réponse :** `{ "ok": true, "markedCount": 3 }`
+
+---
+
+## Devoirs (fichiers par classe)
+
+Partage de **devoirs** (fichiers **PDF** ou **Word**) ciblés par **classe**.  
+Les fichiers sont stockés dans un bucket **Cloudflare R2** ; l’API enregistre les métadonnées en base (`devoir`).
+
+### Formats acceptés
+
+- PDF (`.pdf`)
+- Word (`.doc`, `.docx`)
+
+Taille max : `DEVOIR_MAX_UPLOAD_BYTES` (défaut 20 Mo).
+
+### Publier un devoir *(ROLE_DIRECTEUR)*
+
+```
+POST /api/devoirs
+Content-Type: multipart/form-data
+```
+
+| Champ | Obligatoire | Description |
+|-------|-------------|-------------|
+| `file` | oui | Fichier PDF ou Word |
+| `titre` | oui | Titre affiché |
+| `classeId` | oui | Id de la classe (`classe.id`) |
+| `description` | non | Texte complémentaire |
+
+**Réponse (201)** : objet devoir (groupe `read`, sans clé de stockage interne).
+
+Une **notification push** est envoyée aux parents de la classe (élèves inscrits actifs) ayant un token FCM enregistré.
+
+### Lister les devoirs
+
+```
+GET /api/devoirs
+GET /api/devoirs?classeId=42
+```
+
+- **Parent** : devoirs des classes où il a au moins un enfant inscrit (même filtre inscription que les élèves). Sans `classeId`, toutes les classes concernées ; avec `classeId`, filtre sur une classe (404 si aucun enfant dans cette classe).
+- **Directeur** : `classeId` **obligatoire** — liste tous les devoirs publiés pour cette classe.
+
+Session parent requise (pas le seul `API_TOKEN`).
+
+### Détail et téléchargement
+
+```
+GET /api/devoirs/{id}
+```
+
+```
+GET /api/devoirs/{id}/download-url
+```
+
+Retourne une URL **présignée** R2 (durée `R2_PRESIGNED_URL_TTL`, défaut 3600 s) :
+
+```json
+{
+  "downloadUrl": "https://…",
+  "expiresInSeconds": 3600,
+  "filename": "devoir-maths.pdf",
+  "mimeType": "application/pdf"
+}
+```
+
+Le client mobile / web ouvre cette URL pour télécharger le fichier.
+
+---
+
+## Notifications push (Firebase)
+
+Notifications **Firebase Cloud Messaging (HTTP v1)** pour l’app mobile parent.
+
+### Enregistrer un appareil *(session parent, après login)*
+
+```
+POST /api/push/devices
+```
+
+**Corps JSON :**
+
+```json
+{
+  "token": "fcm-device-token",
+  "platform": "android"
+}
+```
+
+`platform` : `android` ou `ios`.
+
+**Réponse (201)** : `{ "ok": true, "id": 1, "platform": "android" }`
+
+Un même token est réattribué au parent courant s’il change de compte sur l’appareil.
+
+### Désenregistrer
+
+```
+POST /api/push/devices/unregister
+```
+
+```json
+{ "token": "fcm-device-token" }
+```
+
+### Déclenchement automatique
+
+| Événement | Destinataires | Données `data` (toutes en string) |
+|-----------|---------------|-----------------------------------|
+| Création annonce | Même ciblage que l’annonce | `type=annonce`, `annonceId`, `annonceType` |
+| Publication devoir | Parents de la classe | `type=devoir`, `devoirId`, `classeId` |
+
+Si `FIREBASE_CREDENTIALS` n’est pas configuré, les push sont ignorés (l’API répond quand même 201 à la création).
 
 ---
 
@@ -609,8 +814,15 @@ GET /api/tarifications/{id}
 | `API_TOKEN` | Token technique pour intégrations (alternative au login parent) |
 | `DEFAULT_PIN` | PIN par défaut des parents (avant première modification) |
 | `API_SESSION_TTL` | Durée du token de session parent (secondes) |
+| `R2_ACCOUNT_ID` | Identifiant compte Cloudflare (R2) |
+| `R2_ACCESS_KEY_ID` | Clé d’accès R2 |
+| `R2_SECRET_ACCESS_KEY` | Secret R2 |
+| `R2_BUCKET` | Nom du bucket |
+| `R2_PRESIGNED_URL_TTL` | Validité des URLs de téléchargement (secondes) |
+| `DEVOIR_MAX_UPLOAD_BYTES` | Taille max upload devoir (octets) |
+| `FIREBASE_CREDENTIALS` | Chemin vers le JSON compte de service Firebase (FCM) |
 
-Les tables `parent_pin` et `parent_session` sont créées dans la même base MySQL (`Ecole_La_Bonte_4`) :
+Les tables `parent_pin`, `parent_session`, `annonce`, `annonce_lecture`, `devoir` et `parent_push_device` sont créées dans la même base MySQL (`Ecole_La_Bonte_4`) :
 
 ```bash
 php bin/console doctrine:migrations:migrate
@@ -633,4 +845,13 @@ DATABASE_URL="mysql://user:password@host:3306/Ecole_La_Bonte_4?serverVersion=8.0
 API_TOKEN="votre-token-secret"
 DEFAULT_PIN="1234"
 API_SESSION_TTL=86400
+R2_ACCOUNT_ID="votre-account-id"
+R2_ACCESS_KEY_ID="…"
+R2_SECRET_ACCESS_KEY="…"
+R2_BUCKET="clb-devoirs"
+R2_PRESIGNED_URL_TTL=3600
+DEVOIR_MAX_UPLOAD_BYTES=20971520
+FIREBASE_CREDENTIALS="config/firebase/service-account.json"
 ```
+
+Placer le fichier compte de service Firebase (non versionné) dans `config/firebase/` — voir [FCM HTTP v1](https://firebase.google.com/docs/cloud-messaging/send-message).

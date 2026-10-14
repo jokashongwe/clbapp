@@ -15,7 +15,9 @@
     { "key": "anneescolaireId", "value": "4" },
     { "key": "telephone", "value": "+243997031460" },
     { "key": "pin", "value": "1234" },
-    { "key": "mois", "value": "July" }
+    { "key": "mois", "value": "July" },
+    { "key": "classeId", "value": "42" },
+    { "key": "devoirId", "value": "1" }
   ],
   "auth": {
     "type": "bearer",
@@ -258,6 +260,131 @@
           "request": {
             "method": "GET",
             "url": "{{baseUrl}}/api/paiements/16570"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Push (Firebase)",
+      "description": "Enregistrement token FCM après login parent. Push auto à la création d'annonces / devoirs.",
+      "item": [
+        {
+          "name": "Enregistrer appareil FCM",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"votre-fcm-token\",\n  \"platform\": \"android\"\n}"
+            },
+            "url": "{{baseUrl}}/api/push/devices"
+          }
+        },
+        {
+          "name": "Désenregistrer appareil",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"votre-fcm-token\"\n}"
+            },
+            "url": "{{baseUrl}}/api/push/devices/unregister"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Devoirs",
+      "description": "Fichiers PDF/Word par classe (stockage Cloudflare R2). Upload : directeur. Liste / téléchargement : parent ou directeur.",
+      "item": [
+        {
+          "name": "Publier devoir (directeur, multipart)",
+          "request": {
+            "method": "POST",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "", "description": "PDF ou Word" },
+                { "key": "titre", "value": "Devoir de mathématiques", "type": "text" },
+                { "key": "classeId", "value": "{{classeId}}", "type": "text" },
+                { "key": "description", "value": "Exercices pages 12-14", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/devoirs"
+          }
+        },
+        {
+          "name": "Liste devoirs (parent)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/devoirs?classeId={{classeId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "devoirs"],
+              "query": [
+                { "key": "classeId", "value": "{{classeId}}", "description": "Optionnel pour parent ; obligatoire pour directeur" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Détail devoir",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/devoirs/{{devoirId}}"
+          }
+        },
+        {
+          "name": "URL de téléchargement",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/devoirs/{{devoirId}}/download-url"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Annonces",
+      "description": "Création réservée au directeur (login avec compte directeur). Lecture / read : session parent.",
+      "item": [
+        {
+          "name": "Créer annonce (directeur)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"Information\",\n  \"titre\": \"Test annonce\",\n  \"contenu\": \"Contenu de l'annonce.\",\n  \"cibleType\": \"tous\"\n}"
+            },
+            "url": "{{baseUrl}}/api/annonces"
+          }
+        },
+        {
+          "name": "Annonces non lues",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/annonces"
+          }
+        },
+        {
+          "name": "Marquer une annonce lue",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/annonces/1/read"
+          }
+        },
+        {
+          "name": "Marquer toutes lues",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/annonces/read-all"
           }
         }
       ]
