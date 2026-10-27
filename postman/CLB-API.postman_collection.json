@@ -414,6 +414,47 @@
           }
         }
       ]
+    },
+    {
+      "name": "Classes & options",
+      "description": "Référentiel école : classes actives (`classe`) et options/filières (`categorie`).",
+      "item": [
+        {
+          "name": "Liste des classes",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/classes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "classes"],
+              "query": [
+                { "key": "categorieId", "value": "", "description": "Optionnel — filtrer par option/filière", "disabled": true }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Détail classe",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/classes/{{classeId}}"
+          }
+        },
+        {
+          "name": "Liste des options (catégories)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/options"
+          }
+        },
+        {
+          "name": "Détail option",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/options/7"
+          }
+        }
+      ]
     }
   ]
 }

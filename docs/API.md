@@ -17,6 +17,8 @@ Toutes les réponses sont au format **JSON**.
 - [Élèves](#élèves)
 - [Paiements](#paiements)
 - [Tarifications](#tarifications)
+- [Classes](#classes)
+- [Options (catégories / filières)](#options-catégories--filières)
 - [Annonces aux parents](#annonces-aux-parents)
 - [Devoirs (fichiers par classe)](#devoirs-fichiers-par-classe)
 - [Notifications push (Firebase)](#notifications-push-firebase)
@@ -581,6 +583,79 @@ GET /api/tarifications/{id}
 
 ---
 
+## Classes
+
+Lecture des classes actives (`classe.supp = 0`) de la BD principale, avec niveau et catégorie (option / filière).
+
+Schéma source : `classe` → `niveaux`, `categorie`, `type_classe`.
+
+### Liste des classes
+
+```
+GET /api/classes
+GET /api/classes?categorieId=7
+```
+
+| Paramètre | Type | Requis | Description |
+|-----------|------|--------|-------------|
+| `categorieId` | int | Non | Filtrer par option / filière (`categorie.id`). Alias acceptés : `optionId`, `categorie_id`. |
+
+**Réponse (extrait) :**
+
+```json
+[
+  {
+    "id": 42,
+    "libelle": "A",
+    "nombreEleveMax": 32,
+    "nomAffiche": "2 A Scientifique",
+    "typeClasseId": 25,
+    "niveau": { "id": 2, "libelle": "2" },
+    "categorie": { "id": 7, "section": "Scientifique", "option": "Scientifique" }
+  }
+]
+```
+
+### Détail d'une classe
+
+```
+GET /api/classes/{id}
+```
+
+---
+
+## Options (catégories / filières)
+
+Liste des options / sections de l'école — table `categorie` (même identifiant que `cibleType: "option"` des annonces).
+
+### Liste des options
+
+```
+GET /api/options
+```
+
+**Réponse (extrait) :**
+
+```json
+[
+  {
+    "id": 7,
+    "section": "Scientifique",
+    "option": "Scientifique",
+    "nombrePeriodes": 6,
+    "nomAffiche": "Scientifique"
+  }
+]
+```
+
+### Détail d'une option
+
+```
+GET /api/options/{id}
+```
+
+---
+
 ## Récapitulatif des endpoints
 
 | Méthode | Endpoint |
@@ -603,6 +678,10 @@ GET /api/tarifications/{id}
 | `GET` | `/api/paiements/{id}` |
 | `GET` | `/api/tarifications` |
 | `GET` | `/api/tarifications/{id}` |
+| `GET` | `/api/classes` |
+| `GET` | `/api/classes/{id}` |
+| `GET` | `/api/options` |
+| `GET` | `/api/options/{id}` |
 | `POST` | `/api/annonces` *(directeur)* |
 | `GET` | `/api/annonces` *(parent — non lues)* |
 | `POST` | `/api/annonces/{id}/read` *(parent)* |
