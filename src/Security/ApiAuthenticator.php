@@ -45,14 +45,20 @@ final class ApiAuthenticator extends AbstractAuthenticator
 
     public function authenticate(Request $request): Passport
     {
-        $token = $this->extractToken($request);
+        $tokens = $this->extractTokens($request);
 
-        if ($token === null || $token === '') {
+        if ($tokens === []) {
             throw new CustomUserMessageAuthenticationException('Token d\'authentification manquant.');
         }
 
-        $session = $this->parentSessionRepository->findValidByTokenHash(hash('sha256', $token));
-        if ($session !== null) {
+        // Toujours privilégier une session parent valide, même si X-API-KEY
+        // contient aussi le token technique (sinon ApiUser → 403 sur annonces/devoirs).
+        foreach ($tokens as $token) {
+            $session = $this->parentSessionRepository->findValidByTokenHash(hash('sha256', $token));
+            if ($session === null) {
+                continue;
+            }
+
             $parent = $session->getParent();
             $isDirecteur = $this->parentDirecteurRepository->isDirecteur($parent->getId());
 
@@ -69,10 +75,12 @@ final class ApiAuthenticator extends AbstractAuthenticator
             );
         }
 
-        if ($this->apiToken !== '' && hash_equals($this->apiToken, $token)) {
-            return new SelfValidatingPassport(
-                new UserBadge('api', static fn (): ApiUser => new ApiUser()),
-            );
+        foreach ($tokens as $token) {
+            if ($this->apiToken !== '' && hash_equals($this->apiToken, $token)) {
+                return new SelfValidatingPassport(
+                    new UserBadge('api', static fn (): ApiUser => new ApiUser()),
+                );
+            }
         }
 
         throw new CustomUserMessageAuthenticationException('Token d\'authentification invalide.');
@@ -90,18 +98,26 @@ final class ApiAuthenticator extends AbstractAuthenticator
         return new JsonResponse(['error' => $message], Response::HTTP_UNAUTHORIZED);
     }
 
-    private function extractToken(Request $request): ?string
+    /**
+     * @return list<string>
+     */
+    private function extractTokens(Request $request): array
     {
-        $headerToken = $request->headers->get('X-API-KEY');
-        if (is_string($headerToken) && $headerToken !== '') {
-            return $headerToken;
-        }
+        $tokens = [];
 
         $authorization = $request->headers->get('Authorization', '');
         if (str_starts_with($authorization, 'Bearer ')) {
-            return substr($authorization, 7);
+            $bearer = substr($authorization, 7);
+            if ($bearer !== '') {
+                $tokens[] = $bearer;
+            }
         }
 
-        return null;
+        $headerToken = $request->headers->get('X-API-KEY');
+        if (is_string($headerToken) && $headerToken !== '') {
+            $tokens[] = $headerToken;
+        }
+
+        return array_values(array_unique($tokens));
     }
 }

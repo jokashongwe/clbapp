@@ -42,10 +42,10 @@ final class ParentUser implements UserInterface
     public function getRoles(): array
     {
         if ($this->isDirecteur) {
-            return ['ROLE_DIRECTEUR'];
+            return ['ROLE_DIRECTEUR', 'ROLE_PARENT', 'ROLE_API'];
         }
 
-        return ['ROLE_PARENT'];
+        return ['ROLE_PARENT', 'ROLE_API'];
     }
 
     public function eraseCredentials(): void

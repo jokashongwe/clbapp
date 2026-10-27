@@ -814,6 +814,7 @@ Si `FIREBASE_CREDENTIALS` n’est pas configuré, les push sont ignorés (l’AP
 | `API_TOKEN` | Token technique pour intégrations (alternative au login parent) |
 | `DEFAULT_PIN` | PIN par défaut des parents (avant première modification) |
 | `API_SESSION_TTL` | Durée du token de session parent (secondes) |
+| `DIRECTEUR_PARENT_IDS` | IDs `parent_eleve` forcés en `ROLE_DIRECTEUR` (liste CSV, optionnel) |
 | `R2_ACCOUNT_ID` | Identifiant compte Cloudflare (R2) |
 | `R2_ACCESS_KEY_ID` | Clé d’accès R2 |
 | `R2_SECRET_ACCESS_KEY` | Secret R2 |
