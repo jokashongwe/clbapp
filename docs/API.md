@@ -100,6 +100,8 @@ Réponse login super user :
 | `API_SESSION_TTL` | Durée de validité du token de session (secondes) | `86400` (24 h) |
 | `SUPER_USER_PHONES` | Numéros super user (CSV), ex. `+243997031460,+2438…` | *(vide)* |
 
+> **Attention (dev)** : avec `APP_ENV=dev`, le fichier `.env.dev` **écrase** `.env`. Il faut aussi y définir `SUPER_USER_PHONES` (une ligne vide annule la valeur de `.env`).
+
 ### Connexion
 
 ```

@@ -42,6 +42,16 @@ final class ParentAuthService
 
     public function login(string $telephone, string $pin): array
     {
+        $telephone = trim($telephone);
+        $pin = trim($pin);
+
+        // Les numéros listés dans SUPER_USER_PHONES priment toujours sur parent_eleve.
+        if ($this->superUserPhoneRegistry->isSuperUser($telephone)) {
+            $this->assertSuperUserPinValid($telephone, $pin);
+
+            return $this->createSuperUserSessionResponse($telephone);
+        }
+
         $parent = $this->findActiveParentByTelephoneOrNull($telephone);
         if ($parent !== null) {
             $this->assertPinValid($parent, $pin);
@@ -49,18 +59,38 @@ final class ParentAuthService
             return $this->createSessionResponse($parent);
         }
 
-        if ($this->superUserPhoneRegistry->isSuperUser($telephone)) {
-            $this->assertSuperUserPinValid($telephone, $pin);
-
-            return $this->createSuperUserSessionResponse($telephone);
-        }
-
-        throw new UnauthorizedHttpException('', 'Aucun tuteur actif trouvé pour ce numéro de téléphone.');
+        throw new UnauthorizedHttpException(
+            '',
+            'Aucun tuteur actif ni super utilisateur trouvé pour ce numéro de téléphone.',
+        );
     }
 
     public function changePin(string $telephone, string $currentPin, string $newPin): void
     {
+        $telephone = trim($telephone);
+        $currentPin = trim($currentPin);
+        $newPin = trim($newPin);
         $this->assertPinFormat($newPin);
+
+        if ($this->superUserPhoneRegistry->isSuperUser($telephone)) {
+            $this->assertSuperUserPinValid($telephone, $currentPin);
+
+            $normalizedPhone = PhoneNormalizer::toNational($telephone);
+            $hasher = $this->passwordHasherFactory->getPasswordHasher(PinUser::class);
+
+            $superPin = $this->superUserPinRepository->findOneByTelephone($normalizedPhone);
+            if ($superPin === null) {
+                $superPin = new SuperUserPin();
+                $superPin->setTelephone($normalizedPhone);
+                $this->entityManager->persist($superPin);
+            }
+
+            $superPin->setPinHash($hasher->hash($newPin));
+            $superPin->setUpdatedAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
+
+            return;
+        }
 
         $parent = $this->findActiveParentByTelephoneOrNull($telephone);
         if ($parent !== null) {
@@ -84,27 +114,7 @@ final class ParentAuthService
             return;
         }
 
-        if ($this->superUserPhoneRegistry->isSuperUser($telephone)) {
-            $this->assertSuperUserPinValid($telephone, $currentPin);
-
-            $normalizedPhone = PhoneNormalizer::toNational($telephone);
-            $hasher = $this->passwordHasherFactory->getPasswordHasher(PinUser::class);
-
-            $superPin = $this->superUserPinRepository->findOneByTelephone($normalizedPhone);
-            if ($superPin === null) {
-                $superPin = new SuperUserPin();
-                $superPin->setTelephone($normalizedPhone);
-                $this->entityManager->persist($superPin);
-            }
-
-            $superPin->setPinHash($hasher->hash($newPin));
-            $superPin->setUpdatedAt(new \DateTimeImmutable());
-            $this->entityManager->flush();
-
-            return;
-        }
-
-        throw new UnauthorizedHttpException('', 'Aucun tuteur actif trouvé pour ce numéro de téléphone.');
+        throw new UnauthorizedHttpException('', 'Aucun tuteur actif ni super utilisateur trouvé pour ce numéro de téléphone.');
     }
 
     public function findActiveParentByTelephone(string $telephone): ParentEleve

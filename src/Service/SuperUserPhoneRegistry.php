@@ -21,7 +21,23 @@ final class SuperUserPhoneRegistry
             return false;
         }
 
-        return \in_array($national, $this->phones, true);
+        foreach ($this->phones as $configured) {
+            if (PhoneNormalizer::matches($telephone, $configured)
+                || $national === $configured
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getConfiguredPhones(): array
+    {
+        return $this->phones;
     }
 
     /**
@@ -29,13 +45,17 @@ final class SuperUserPhoneRegistry
      */
     private function parsePhones(string $value): array
     {
+        $value = trim($value);
         if ($value === '') {
             return [];
         }
 
+        // Accepte CSV, points-virgules ou retours à la ligne
+        $parts = preg_split('/[\s,;]+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
         $phones = [];
-        foreach (explode(',', $value) as $raw) {
-            $national = PhoneNormalizer::toNational(trim($raw));
+        foreach ($parts as $raw) {
+            $national = PhoneNormalizer::toNational(trim($raw, " \t\"'"));
             if ($national !== '') {
                 $phones[] = $national;
             }
