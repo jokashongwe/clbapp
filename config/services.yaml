@@ -25,7 +25,11 @@ services:
     
     App\Repository\ParentDirecteurRepository:
         arguments:
-            $explicitParentIds: '%env(DIRECTEUR_PARENT_IDS)%'
+            $explicitParentIds: '%env(default::DIRECTEUR_PARENT_IDS)%'
+
+    App\Service\SuperUserPhoneRegistry:
+        arguments:
+            $phones: '%env(default::SUPER_USER_PHONES)%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
