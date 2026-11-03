@@ -6,6 +6,7 @@ use App\Entity\ParentPushDevice;
 use App\Repository\ParentEleveRepository;
 use App\Repository\ParentPushDeviceRepository;
 use App\Security\ParentUser;
+use App\Security\SuperUser;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -22,8 +23,6 @@ final class PushDeviceController extends AbstractApiController
         ParentPushDeviceRepository $pushDeviceRepository,
         ParentEleveRepository $parentEleveRepository,
     ): JsonResponse {
-        $parentId = $this->requireParentId();
-
         $payload = json_decode($request->getContent(), true);
         if (!\is_array($payload)) {
             throw new BadRequestHttpException('Corps JSON invalide.');
@@ -44,6 +43,15 @@ final class PushDeviceController extends AbstractApiController
             throw new BadRequestHttpException('platform doit valoir android ou ios.');
         }
 
+        if ($this->getUser() instanceof SuperUser) {
+            return new JsonResponse([
+                'ok' => true,
+                'id' => null,
+                'platform' => $platform,
+            ], 201);
+        }
+
+        $parentId = $this->requireParentId();
         $parent = $parentEleveRepository->find($parentId);
         if ($parent === null || $parent->isSupp()) {
             throw new NotFoundHttpException('Parent introuvable.');
@@ -63,8 +71,6 @@ final class PushDeviceController extends AbstractApiController
         Request $request,
         ParentPushDeviceRepository $pushDeviceRepository,
     ): JsonResponse {
-        $this->requireParentId();
-
         $payload = json_decode($request->getContent(), true);
         if (!\is_array($payload)) {
             throw new BadRequestHttpException('Corps JSON invalide.');
@@ -75,6 +81,11 @@ final class PushDeviceController extends AbstractApiController
             throw new BadRequestHttpException('Le champ token est requis.');
         }
 
+        if ($this->getUser() instanceof SuperUser) {
+            return new JsonResponse(['ok' => true, 'removed' => false]);
+        }
+
+        $this->requireParentId();
         $removed = $pushDeviceRepository->unregisterByToken($token);
 
         return new JsonResponse(['ok' => true, 'removed' => $removed]);

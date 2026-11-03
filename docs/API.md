@@ -71,10 +71,34 @@ Les parents s'authentifient avec le **numéro de téléphone du tuteur** (`paren
 - Le numéro doit correspondre à un **tuteur actif** existant dans `parent_eleve.numero_telephone_tuteur` (comparaison sur les chiffres uniquement).
 - Les PIN et sessions sont stockés dans la **base MySQL** (`parent_pin`, `parent_session`), avec clé étrangère vers `parent_eleve.id`.
 
+### Super utilisateurs (sans `parent_eleve`)
+
+Les numéros listés dans `SUPER_USER_PHONES` (CSV dans `.env`) peuvent se connecter **sans** être tuteurs :
+
+- Même endpoint `POST /api/auth/login` (téléphone + PIN, `DEFAULT_PIN` tant qu’aucun PIN personnalisé).
+- Rôles : `ROLE_SUPER_USER` (+ `ROLE_DIRECTEUR` / `ROLE_PARENT` / `ROLE_API`) → accès à **toutes** les routes API.
+- Sessions / PIN stockés dans `super_user_session` et `super_user_pin` (pas de FK vers `parent_eleve`).
+- Si le numéro existe aussi comme tuteur actif, le flux **parent** prime.
+- Les endpoints liés à un parent (annonces non lues, push, etc.) répondent vide / no-op pour un super user.
+
+Réponse login super user :
+
+```json
+{
+  "token": "a1b2c3...",
+  "expires_at": "2026-06-19T16:00:00+00:00",
+  "roles": ["ROLE_SUPER_USER", "ROLE_DIRECTEUR", "ROLE_PARENT"],
+  "isSuperUser": true,
+  "parent": null,
+  "superUser": { "numeroTelephone": "997031460" }
+}
+```
+
 | Variable | Description | Défaut |
 |----------|-------------|--------|
 | `DEFAULT_PIN` | PIN initial pour les parents sans PIN personnalisé | `1234` |
 | `API_SESSION_TTL` | Durée de validité du token de session (secondes) | `86400` (24 h) |
+| `SUPER_USER_PHONES` | Numéros super user (CSV), ex. `+243997031460,+2438…` | *(vide)* |
 
 ### Connexion
 
@@ -894,6 +918,7 @@ Si `FIREBASE_CREDENTIALS` n’est pas configuré, les push sont ignorés (l’AP
 | `DEFAULT_PIN` | PIN par défaut des parents (avant première modification) |
 | `API_SESSION_TTL` | Durée du token de session parent (secondes) |
 | `DIRECTEUR_PARENT_IDS` | IDs `parent_eleve` forcés en `ROLE_DIRECTEUR` (liste CSV, optionnel) |
+| `SUPER_USER_PHONES` | Numéros autorisés à s'authentifier **sans** être parents (liste CSV, optionnel) |
 | `R2_ACCOUNT_ID` | Identifiant compte Cloudflare (R2) |
 | `R2_ACCESS_KEY_ID` | Clé d’accès R2 |
 | `R2_SECRET_ACCESS_KEY` | Secret R2 |
@@ -902,7 +927,7 @@ Si `FIREBASE_CREDENTIALS` n’est pas configuré, les push sont ignorés (l’AP
 | `DEVOIR_MAX_UPLOAD_BYTES` | Taille max upload devoir (octets) |
 | `FIREBASE_CREDENTIALS` | Chemin vers le JSON compte de service Firebase (FCM) |
 
-Les tables `parent_pin`, `parent_session`, `annonce`, `annonce_lecture`, `devoir` et `parent_push_device` sont créées dans la même base MySQL (`Ecole_La_Bonte_4`) :
+Les tables `parent_pin`, `parent_session`, `super_user_pin`, `super_user_session`, `annonce`, `annonce_lecture`, `devoir` et `parent_push_device` sont créées dans la même base MySQL (`Ecole_La_Bonte_4`) :
 
 ```bash
 php bin/console doctrine:migrations:migrate
@@ -925,6 +950,7 @@ DATABASE_URL="mysql://user:password@host:3306/Ecole_La_Bonte_4?serverVersion=8.0
 API_TOKEN="votre-token-secret"
 DEFAULT_PIN="1234"
 API_SESSION_TTL=86400
+SUPER_USER_PHONES="+243997031460,+243812345678"
 R2_ACCOUNT_ID="votre-account-id"
 R2_ACCESS_KEY_ID="…"
 R2_SECRET_ACCESS_KEY="…"

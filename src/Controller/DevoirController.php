@@ -6,6 +6,7 @@ use App\Entity\Devoir;
 use App\Repository\DevoirRepository;
 use App\Repository\ParentEleveRepository;
 use App\Security\ParentUser;
+use App\Security\SuperUser;
 use App\Service\CloudflareR2Storage;
 use App\Service\DevoirFileValidator;
 use App\Service\Push\ParentPushNotificationService;
@@ -34,8 +35,8 @@ final class DevoirController extends AbstractApiController
         ParentPushNotificationService $pushNotificationService,
     ): JsonResponse {
         $user = $this->getUser();
-        if (!$user instanceof ParentUser) {
-            throw new AccessDeniedHttpException('Création réservée à un compte parent directeur.');
+        if (!$user instanceof ParentUser && !$user instanceof SuperUser) {
+            throw new AccessDeniedHttpException('Création réservée à un compte directeur.');
         }
 
         /** @var UploadedFile|null $file */
@@ -76,9 +77,12 @@ final class DevoirController extends AbstractApiController
         $storageKey = $this->buildStorageKey($file->getClientOriginalName());
         $storage->upload($storageKey, $contents, $mimeType);
 
-        $parent = $parentEleveRepository->find($user->getParentId());
-        if ($parent === null || $parent->isSupp()) {
-            throw new NotFoundHttpException('Parent introuvable.');
+        $parent = null;
+        if ($user instanceof ParentUser) {
+            $parent = $parentEleveRepository->find($user->getParentId());
+            if ($parent === null || $parent->isSupp()) {
+                throw new NotFoundHttpException('Parent introuvable.');
+            }
         }
 
         $devoir = (new Devoir())
@@ -108,7 +112,7 @@ final class DevoirController extends AbstractApiController
         $user = $this->getUser();
         $classeId = $this->parseOptionalClasseId($request);
 
-        if ($user instanceof ParentUser && $user->isDirecteur()) {
+        if ($user instanceof SuperUser || ($user instanceof ParentUser && $user->isDirecteur())) {
             if ($classeId === null) {
                 throw new BadRequestHttpException('Le paramètre classeId est requis pour la consultation directeur.');
             }
@@ -162,7 +166,7 @@ final class DevoirController extends AbstractApiController
         }
 
         $user = $this->getUser();
-        if ($user instanceof ParentUser && $user->isDirecteur()) {
+        if ($user instanceof SuperUser || ($user instanceof ParentUser && $user->isDirecteur())) {
             return $devoir;
         }
 

@@ -4,6 +4,7 @@ namespace App\Security;
 
 use App\Repository\ParentDirecteurRepository;
 use App\Repository\ParentSessionRepository;
+use App\Repository\SuperUserSessionRepository;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -20,6 +21,7 @@ final class ApiAuthenticator extends AbstractAuthenticator
 {
     public function __construct(
         private readonly ParentSessionRepository $parentSessionRepository,
+        private readonly SuperUserSessionRepository $superUserSessionRepository,
         private readonly ParentDirecteurRepository $parentDirecteurRepository,
         #[Autowire(env: 'API_TOKEN')]
         private readonly string $apiToken,
@@ -71,6 +73,22 @@ final class ApiAuthenticator extends AbstractAuthenticator
                         $parent->getNomTuteur(),
                         $isDirecteur,
                     ),
+                ),
+            );
+        }
+
+        foreach ($tokens as $token) {
+            $session = $this->superUserSessionRepository->findValidByTokenHash(hash('sha256', $token));
+            if ($session === null) {
+                continue;
+            }
+
+            $telephone = $session->getTelephone();
+
+            return new SelfValidatingPassport(
+                new UserBadge(
+                    'super:'.$telephone,
+                    static fn (): SuperUser => new SuperUser($telephone),
                 ),
             );
         }

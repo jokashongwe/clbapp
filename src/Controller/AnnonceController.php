@@ -8,6 +8,7 @@ use App\Repository\AnnonceRepository;
 use App\Repository\EleveRepository;
 use App\Repository\ParentEleveRepository;
 use App\Security\ParentUser;
+use App\Security\SuperUser;
 use App\Service\Push\ParentPushNotificationService;
 use Doctrine\DBAL\Connection;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,8 +33,8 @@ final class AnnonceController extends AbstractApiController
         ParentPushNotificationService $pushNotificationService,
     ): JsonResponse {
         $user = $this->getUser();
-        if (!$user instanceof ParentUser) {
-            throw new AccessDeniedHttpException('Création réservée à un compte parent directeur.');
+        if (!$user instanceof ParentUser && !$user instanceof SuperUser) {
+            throw new AccessDeniedHttpException('Création réservée à un compte directeur.');
         }
 
         $payload = json_decode($request->getContent(), true);
@@ -79,9 +80,12 @@ final class AnnonceController extends AbstractApiController
             $this->assertCibleExists($cibleType, $cibleIdInt, $eleveRepository, $connection);
         }
 
-        $parent = $parentEleveRepository->find($user->getParentId());
-        if ($parent === null || $parent->isSupp()) {
-            throw new NotFoundHttpException('Parent introuvable.');
+        $parent = null;
+        if ($user instanceof ParentUser) {
+            $parent = $parentEleveRepository->find($user->getParentId());
+            if ($parent === null || $parent->isSupp()) {
+                throw new NotFoundHttpException('Parent introuvable.');
+            }
         }
 
         $annonce = (new Annonce())
@@ -106,6 +110,10 @@ final class AnnonceController extends AbstractApiController
     #[Route('', name: 'api_annonces_unread', methods: ['GET'])]
     public function unread(AnnonceRepository $annonceRepository): JsonResponse
     {
+        if ($this->getUser() instanceof SuperUser) {
+            return $this->jsonRead([]);
+        }
+
         $parentId = $this->requireParentId();
 
         return $this->jsonRead($annonceRepository->findUnreadForParent($parentId));
@@ -118,6 +126,10 @@ final class AnnonceController extends AbstractApiController
         AnnonceLectureRepository $lectureRepository,
         ParentEleveRepository $parentEleveRepository,
     ): JsonResponse {
+        if ($this->getUser() instanceof SuperUser) {
+            return new JsonResponse(['ok' => true]);
+        }
+
         $parentId = $this->requireParentId();
 
         $annonce = $annonceRepository->find($id);
@@ -142,6 +154,13 @@ final class AnnonceController extends AbstractApiController
     #[Route('/read-all', name: 'api_annonces_read_all', methods: ['POST'])]
     public function readAll(AnnonceRepository $annonceRepository): JsonResponse
     {
+        if ($this->getUser() instanceof SuperUser) {
+            return new JsonResponse([
+                'ok' => true,
+                'markedCount' => 0,
+            ]);
+        }
+
         $parentId = $this->requireParentId();
         $marked = $annonceRepository->markAllUnreadAsReadForParent($parentId);
 

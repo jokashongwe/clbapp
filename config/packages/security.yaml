@@ -4,6 +4,7 @@ security:
         App\Security\PinUser: 'auto'
 
     role_hierarchy:
+        ROLE_SUPER_USER: ROLE_DIRECTEUR
         ROLE_DIRECTEUR: ROLE_PARENT
         ROLE_PARENT: ROLE_API
 
